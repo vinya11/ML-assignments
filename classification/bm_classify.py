@@ -54,15 +54,20 @@ def binary_train(X, y, loss="perceptron", w0=None, b0=None, step_size=0.5, max_i
             
             
             error = y-fx
-            loss_func = (1.0/N)*max(0,-np.matmul(dot_prod,error)) 
-            # print(error.shape)
-            # print(X.shape)
+            inside_loss =0
+            # for i in range(N):
+            #     inside_dot = np.dot(X[i],w)+b
+            #     fx_in = np.where(inside_dot <0,0.0,1.0)
+            #     error_in = y[i]-fx_in
+            #     inside_loss += max(0,-inside_dot*error_in)
+            # print(f"inside {1.0/N*inside_loss}")
+            # outside = (1.0/N)*np.sum(max(0,-np.matmul(dot_prod,error)),axis=0,keepdims=1)
+            loss_func = (1.0/N)*np.sum(max(0,-np.matmul(dot_prod,error)),axis=0,keepdims=1)#1.0/N*inside_loss#(1.0/N)*max(0,-np.matmul(dot_prod,error)) 
+            # print(f"outside {outside}")
             derivative_w = (1.0/N)*(np.matmul(error.T,X)) 
             dw = np.where(loss_func==0,1,derivative_w)
-            # print(derivative_w)
             derivative_b = error
             db = np.mean(np.where(loss_func==0,1,derivative_b))
-            # print(db.item())
         
             w = w+(dw)
             b = b+(db.item())
@@ -196,50 +201,20 @@ def multiclass_train(X, y, C,
             # "step_size" to minimize logistic loss. We already#
             # pick the index of the random sample for you (n)  #
             ####################################################
-            # P = np.zeros((C,1))
-            # k_sum=0
-            # w_not_yn = np.delete(w.copy(), y[n], axis=0)
-            # b_not_yn = np.delete(b.copy(), y[n], axis=0)
-            # print(w.shape)
-            # print(w_not_yn.shape)
-            # k_sum = np.sum(np.exp(np.dot(w_not_yn,X[n].T)+b_not_yn),axis=0)
-            
-            # w_yn = w[int(y[n])]
-            # b_yn = b[int(y[n])]
             dot  = np.dot(w,X[n].T)+b
-            # zyn=np.dot(w_yn.T,X[n])
-            # zyn_dash = zyn - np.max(zyn)
-            # for k in range(C):
-                
-            #     zk = np.dot(w[k].T,X[n])+b[k]
-            #     zk_dash = zk - np.max(zk)
-            #     k_sum += np.exp(zk_dash)
-            k_sum = np.sum(np.exp(dot-np.max(dot)),axis=0)
+            # k_sum = np.sum(np.exp(dot-np.max(dot)))
             for k in range(C):
                 zk = np.dot(w[k],X[n].T)+b[k]
+                k_sum = np.sum(np.exp(zk-np.max(zk)))
                 sf = softmax(zk,k_sum)
-                # bk = b[k] - b_yn
-                # bk_dash = bk - np.max(bk)
-                # P_k_b = np.exp(bk_dash)/(1+k_sum)
-                # P_k_x = np.exp(zk_dash-zyn_dash)/(1+k_sum)
+                sf = (sf.max(axis=0,keepdims=1) == sf).astype(int)
                 if k!=y[n]:
-                    w[k] -=  step_size*sf*X[n]
-                    b[k] -= step_size*sf
-                    # w[k] = w[k] -(step_size* P_k_x*X[n]*1.0/N)
-                    # b[k] = b[k] - (step_size*P_k_b*1.0/N)
+                    w[k] -=  step_size*sf*X[n].T
+                    b[k] -= step_size*sf  
                 else:
-                    w[k] -= step_size*(sf-1)*X[n]
+                    w[k] -= step_size*(sf-1)*X[n].T
                     b[k] -= step_size*(sf-1)
-                    # w[k] = w[k] - (step_size*(P_k_x-1)*X[n]*1.0/N)
-                    # b[k] = b[k] - (step_size*(P_k_b-1)*1.0/N)
-
-            
-            
-
-        
-        
-        print(b.shape)
-        print(C,D)
+                    
     elif gd_type == "gd":
         ####################################################
         # TODO 6 : perform "max_iterations" steps of       #
@@ -253,8 +228,9 @@ def multiclass_train(X, y, C,
             denom = np.sum(np.exp(num_dash))
             probabilities = num_dash/denom
             probabilities[np.arange(N),y.flatten().astype(int)] -=1
-            w -= 1.0/N*step_size*np.dot(probabilities.T,X)
-            b-= 1.0/N*step_size*np.sum(probabilities,axis=0)
+            probabilities = (probabilities.max(axis=0,keepdims=1) == probabilities).astype(int)
+            w -= (1.0/N)*step_size*np.dot(probabilities.T,X)
+            b-= (1.0/N)*step_size*np.sum(probabilities,axis=0)
 
     else:
         
@@ -289,6 +265,7 @@ def multiclass_predict(X, w, b):
     # TODO 7 : predict DETERMINISTICALLY (i.e. do not randomize)#
     #############################################################
     preds = np.argmax(np.dot(X,w.T)+b,axis=1)
+    
 
     
     assert preds.shape == (N,)
