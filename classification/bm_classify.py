@@ -38,10 +38,13 @@ def binary_train(X, y, loss="perceptron", w0=None, b0=None, step_size=0.5, max_i
     b = 0
     if b0 is not None:
         b = b0
-   
+    
+    # print(y)
     #TODO: insert bias as w0
     # w = np.insert(w, 0, b, axis=1)
     if loss == "perceptron":
+        y_re = y.copy()
+        y_re = np.where(y_re==0,-1,y_re)
         ################################################
         # TODO 1 : perform "max_iterations" steps of   #
         # gradient descent with step size "step_size"  #
@@ -50,29 +53,15 @@ def binary_train(X, y, loss="perceptron", w0=None, b0=None, step_size=0.5, max_i
         ################################################
         for iter in range(max_iterations):
             dot_prod = np.dot(X,w)+b
-            fx = np.where(dot_prod <0,0.0,1.0)
-            
-            
-            error = y-fx
-            inside_loss =0
-            # for i in range(N):
-            #     inside_dot = np.dot(X[i],w)+b
-            #     fx_in = np.where(inside_dot <0,0.0,1.0)
-            #     error_in = y[i]-fx_in
-            #     inside_loss += max(0,-inside_dot*error_in)
-            # print(f"inside {1.0/N*inside_loss}")
-            # outside = (1.0/N)*np.sum(max(0,-np.matmul(dot_prod,error)),axis=0,keepdims=1)
-            loss_func = (1.0/N)*np.sum(max(0,-np.matmul(dot_prod,error)),axis=0,keepdims=1)#1.0/N*inside_loss#(1.0/N)*max(0,-np.matmul(dot_prod,error)) 
-            # print(f"outside {outside}")
-            derivative_w = (1.0/N)*(np.matmul(error.T,X)) 
-            dw = np.where(loss_func==0,1,derivative_w)
-            derivative_b = error
-            db = np.mean(np.where(loss_func==0,1,derivative_b))
+            fx = np.where(dot_prod<0,0.0,1.0)
+            error = fx-y
+            error=np.where(dot_prod==0,-1,error)
+            dw = (1.0/N)*(np.matmul(error.T,X)) 
+            db = np.mean(error,axis=0)
         
-            w = w+step_size*(dw)
-            b = b+(step_size*db)
- 
-            # print(type(b))
+            w = w-step_size*(dw)
+            b = b-(step_size*db)
+        
     elif loss == "logistic":
         ################################################
         # TODO 2 : perform "max_iterations" steps of   #
@@ -191,11 +180,15 @@ def multiclass_train(X, y, C,
         b = b0
     one_hot_y = np.zeros((N,C))
     one_hot_y[np.arange(y.size),y] =1
+    one_hot_y = one_hot_y.astype(int)
+    print(one_hot_y.dtype)
+  
     
-
+    
+    
     np.random.seed(42) #DO NOT CHANGE THE RANDOM SEED IN YOUR FINAL SUBMISSION
     if gd_type == "sgd":
-        matrixP = np.empty((N,C))
+
         for it in range(max_iterations):
             n = np.random.choice(N)
             ####################################################
@@ -204,30 +197,14 @@ def multiclass_train(X, y, C,
             # "step_size" to minimize logistic loss. We already#
             # pick the index of the random sample for you (n)  #
             ####################################################
-            inp = np.dot(X,w.T)+b.T
-            # dot  = np.dot(w,X[n].T)+b
-            probabilities = softmax(inp)
-            # for k in range(C):
-            #     zk = np.dot(w[k],X[n].T)+b[k]
-            #     # k_sum = np.sum(np.exp(zk-np.max(zk)))
-            #     sf = softmax(zk)
-            #     sf = (sf.max(axis=0,keepdims=1) == sf).astype(int)
-            # # for i in range(N):
-            # #     zi = 
-            # print(probabilities.shape)
-            # print(f" one hot shape {one_hot_y[n].shape}")
-            
-            probabilities[:,y[n]] -= 1
-            yn = np.sum(probabilities-one_hot_y,axis=0)
-            
-            w -= step_size*np.dot((yn).reshape(C,1),(X[n].reshape(1,D)))
-            b -= step_size*(yn).T 
-            # if k!=y[n]:
-            #     w[k] -=  step_size*sf*X[n].T
-            #     b[k] -= step_size*sf  
-            # else:
-            #     w[k] -= step_size*(sf-1)*X[n].T
-            #     b[k] -= step_size*(sf-1)
+            inp = np.dot(X[n],w.T)+b
+            num = np.exp(inp-np.max(inp,axis=0))
+            denom = np.sum(num)
+            probability = num/denom
+            probability[y[n]] -=1
+            W_deriv = np.multiply(probability.reshape(-1,1),X[n].reshape(-1,1).T)
+            w -= step_size*W_deriv
+            b -= step_size*(probability) 
                     
     elif gd_type == "gd":
         ####################################################
@@ -236,20 +213,12 @@ def multiclass_train(X, y, C,
         # to minimize logistic loss.                       #
         ####################################################
         for it in range(max_iterations):
-            inp = np.dot(X,w.T)+b.T
+            inp = np.dot(X,w.T)+b
             probabilities = softmax(inp)
-            for n in range(N):
-                probabilities[n,y[n]] -= 1
-            # print(probabilities.shape)
-            # probabilities = np.empty((N,C))
-            # num = np.dot(X,w.T)+b
-            # num_dash = np.exp(num-np.max(num))
-            # denom = np.sum(np.exp(num_dash))
-            # probabilities = num_dash/denom
-            # probabilities[np.arange(N),y.flatten().astype(int)] -=1
-            # probabilities = (probabilities.max(axis=0,keepdims=1) == probabilities).astype(int)
-            w -= (1.0/N)*step_size*np.dot((probabilities-one_hot_y).T,X)
-            b-= (1.0/N)*step_size*np.sum((probabilities-one_hot_y),axis=0)
+            derivation =probabilities-one_hot_y
+            w -= (step_size/N)*np.dot(X.T,derivation).T
+            b-= (step_size/N)*np.sum(derivation,axis=0)
+            
 
     else:
         
@@ -263,9 +232,10 @@ def multiclass_train(X, y, C,
     return w, b
 
 def softmax(z):
-    num = np.exp(z-np.max(z,axis=0))
-    # print(num.shape)
-    return num/np.sum(num,axis=0,keepdims=1)
+
+    num = np.exp(z - np.max(z, axis=1)[:,None])
+    denom =np.sum(num,axis=1,keepdims=True)
+    return num/denom
 def multiclass_predict(X, w, b):
     """
     Inputs:

@@ -20,7 +20,9 @@ def mean_square_error(w, X, y):
     #####################################################
     # TODO 1: Fill in your code here                    #
     #####################################################
-    err = None
+    N= X.shape[0]
+    
+    err = np.power(np.linalg.norm(np.matmul(X,w)-y),2)/N
     return err
 
 ###### Part 1.2 ######
@@ -35,8 +37,9 @@ def linear_regression_noreg(X, y):
   """
   #####################################################
   #	TODO 2: Fill in your code here                    #
-  #####################################################		
-  w = None
+  #####################################################	
+  
+  w = np.matmul(np.matmul(np.linalg.inv(np.matmul(X.T,X)),X.T),y)
   return w
 
 
@@ -53,8 +56,17 @@ def regularized_linear_regression(X, y, lambd):
     """
   #####################################################
   # TODO 4: Fill in your code here                    #
-  #####################################################		
-    w = None
+  #####################################################	
+    # print(X.shape)
+    
+    D = X.shape[1]	
+    Z = np.matmul(X.T,X).astype(np.float64)
+    # print(lambd)
+    p1 = lambd*np.identity(D)
+    p2 =np.add(Z,p1)
+    p3 = np.linalg.inv(p2)
+    p4 = np.matmul(X.T,y)
+    w = np.matmul(p3,p4)
     return w
 
 ###### Part 1.4 ######
@@ -71,8 +83,21 @@ def tune_lambda(Xtrain, ytrain, Xval, yval):
     """
     #####################################################
     # TODO 5: Fill in your code here                    #
-    #####################################################		
-    bestlambda = None
+    #####################################################
+   
+    bestlambda=np.inf
+    
+    min_err = np.inf
+    
+    for i in range(0,15):
+      lambd = 1/np.power(2,i)
+      
+      w = regularized_linear_regression(Xtrain,ytrain,lambd)
+      err = mean_square_error(w, Xval, yval)
+      if err<min_err:
+        min_err = err
+        bestlambda = lambd
+
     return bestlambda
     
 
@@ -88,8 +113,11 @@ def mapping_data(X, p):
     """
     #####################################################
     # TODO 6: Fill in your code here                    #
-    #####################################################		
-    
+    #####################################################
+    Y = np.copy(X)		
+    w,h = X.shape
+    for i in range(2,p+1):
+      X =np.insert(X,X.shape[1],np.power(Y,i).T,axis=1)
     return X
 
 """
