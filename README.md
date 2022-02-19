@@ -5,3 +5,4 @@ Clustering with K-means and K-means++
 K-nearest neighbors
 linear regression
 logistic regression 
+Hidden Markov Models
